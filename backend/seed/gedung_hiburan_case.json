@@ -1,0 +1,111 @@
+{
+  "case_id": "gedung-hiburan-2025",
+  "title": "[Gasal 25/26] Warnet",
+  "base_block": "10.X.124.0/21",
+  "variables": [
+    {
+      "name": "NPM3",
+      "source": "npm_last3",
+      "value": null,
+      "expr": null
+    },
+    {
+      "name": "X",
+      "source": null,
+      "value": null,
+      "expr": "NPM3 % 256"
+    }
+  ],
+  "subnets": [
+    {
+      "name": "RE",
+      "end_devices": [
+        {
+          "type": "Printer",
+          "count": "NPM3 % 29",
+          "name": "Printer RE",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "RS",
+      "end_devices": [
+        {
+          "type": "PC",
+          "count": "(NPM3 % 26) + 3",
+          "name": "PC RS",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "KR",
+      "end_devices": [
+        {
+          "type": "IoT Gateway",
+          "count": "63",
+          "name": "Home Gateway KR",
+          "dhcp": true
+        },
+        {
+          "type": "Smart Device",
+          "count": "63",
+          "name": "Speaker KR",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "CB",
+      "end_devices": [
+        {
+          "type": "IoT Gateway",
+          "count": "128",
+          "name": "Home Gateway CB",
+          "dhcp": true
+        },
+        {
+          "type": "Smart Device",
+          "count": "128",
+          "name": "CCTV CB",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "WN",
+      "end_devices": [
+        {
+          "type": "Server",
+          "count": "510",
+          "name": "Server WN",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    }
+  ],
+  "method": "VLSM",
+  "gateway_is_first_host": true,
+  "order_tiebreak": "reverse_alpha",
+  "grading": {
+    "auto": [
+      "dhcp_pool",
+      "dhcp_mask",
+      "dhcp_gateway",
+      "gateway",
+      "links_up"
+    ],
+    "manual": [
+      "note_name_npm",
+      "palette_boxes",
+      "device_labels",
+      "wireless_dots"
+    ]
+  }
+}

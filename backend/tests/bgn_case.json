@@ -1,0 +1,58 @@
+{
+  "case_id": "bgn-ip-2025",
+  "title": "Badan Gizi Nasional - IP Addressing (VLSM)",
+  "base_block": "10.X.64.0/20",
+  "variables": [
+    {"name": "X", "source": "npm_last2"},
+    {"name": "NPM3", "source": "npm_last3"}
+  ],
+  "subnets": [
+    {
+      "name": "CC-MON",
+      "end_devices": [
+        {"type": "PC", "count": "500 + (NPM3 % 35)", "name": "PC CC-MON", "dhcp": true}
+      ]
+    },
+    {
+      "name": "GIB-RAN",
+      "end_devices": [
+        {"type": "IoT Gateway", "count": "135", "name": "IoT Gateway GIB-RAN", "dhcp": true},
+        {"type": "Sensor", "count": "135", "name": "Sensor GIB-RAN", "dhcp": true}
+      ]
+    },
+    {
+      "name": "SEKRE",
+      "end_devices": [
+        {"type": "PC", "count": "20", "name": "PC SEKRE", "dhcp": true},
+        {"type": "Laptop", "count": "NPM3 % 10", "name": "Laptop SEKRE", "dhcp": true},
+        {"type": "Printer", "count": "2", "name": "Printer SEKRE", "dhcp": true},
+        {"type": "IoT Gateway", "count": "3", "name": "IoT Gateway SEKRE", "dhcp": true},
+        {"type": "Mesin Kopi", "count": "3", "name": "Mesin Kopi SEKRE", "dhcp": true},
+        {"type": "Home Speaker", "count": "6", "name": "Home Speaker SEKRE", "dhcp": true},
+        {"type": "Portable Music Player", "count": "3", "name": "Portable Music Player SEKRE", "dhcp": true}
+      ]
+    },
+    {
+      "name": "WO2",
+      "end_devices": [
+        {"type": "Server Database", "count": "4", "name": "Server Database WO2", "dhcp": true},
+        {"type": "Server Storage", "count": "3", "name": "Server Storage WO2", "dhcp": true},
+        {"type": "Server Application Worker", "count": "NPM3 % 12", "name": "Server App Worker WO2", "dhcp": true}
+      ]
+    },
+    {
+      "name": "MEET",
+      "end_devices": [
+        {"type": "Tablet Teleconference", "count": "25", "name": "Tablet Teleconference MEET", "dhcp": true},
+        {"type": "Access Point", "count": "5", "name": "Access Point MEET", "dhcp": true},
+        {"type": "Tablet Presensi", "count": "NPM3 % 15", "name": "Tablet Presensi MEET", "dhcp": true}
+      ]
+    }
+  ],
+  "method": "VLSM",
+  "order_tiebreak": "alpha",
+  "grading": {
+    "auto": ["dhcp_pool", "dhcp_mask", "dhcp_gateway", "gateway", "links_up"],
+    "manual": ["note_name_npm", "palette_boxes", "device_labels", "wireless_dots"]
+  }
+}

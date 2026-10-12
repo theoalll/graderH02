@@ -1,0 +1,19 @@
+[
+  {"code": "pc", "label": "PC"},
+  {"code": "laptop", "label": "Laptop"},
+  {"code": "server", "label": "Server"},
+  {"code": "printer", "label": "Printer"},
+  {"code": "tablet", "label": "Tablet"},
+  {"code": "smartphone", "label": "Smartphone"},
+  {"code": "end_device", "label": "End Device"},
+  {"code": "iot_gateway", "label": "IoT Gateway"},
+  {"code": "sensor", "label": "Sensor"},
+  {"code": "smart_device", "label": "Smart Device"},
+  {"code": "home_speaker", "label": "Home Speaker"},
+  {"code": "portable_music_player", "label": "Portable Music Player"},
+  {"code": "coffee_machine", "label": "Coffee Machine"},
+  {"code": "access_point", "label": "Access Point"},
+  {"code": "switch", "label": "Switch"},
+  {"code": "router", "label": "Router"},
+  {"code": "wireless_router", "label": "Wireless Router"}
+]

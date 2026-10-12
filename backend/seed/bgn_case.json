@@ -1,0 +1,165 @@
+{
+  "case_id": "bgn-ip-2025",
+  "title": "[Gasal 26/27] BGN",
+  "base_block": "10.X.64.0/20",
+  "variables": [
+    {
+      "name": "X",
+      "source": "npm_last2",
+      "value": null,
+      "expr": null
+    },
+    {
+      "name": "NPM3",
+      "source": "npm_last3",
+      "value": null,
+      "expr": null
+    }
+  ],
+  "subnets": [
+    {
+      "name": "CC-MON",
+      "end_devices": [
+        {
+          "type": "PC",
+          "count": "500 + (NPM3 % 35)",
+          "name": "PC CC-MON",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "GIB-RAN",
+      "end_devices": [
+        {
+          "type": "IoT Gateway",
+          "count": "135",
+          "name": "IoT Gateway",
+          "dhcp": true
+        },
+        {
+          "type": "Sensor",
+          "count": "135",
+          "name": "Sensor IoT Smart Cold Chain",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "SEKRE",
+      "end_devices": [
+        {
+          "type": "PC",
+          "count": "20",
+          "name": "PC kerja",
+          "dhcp": true
+        },
+        {
+          "type": "Laptop",
+          "count": "NPM3 % 10",
+          "name": "Laptop dinas",
+          "dhcp": true
+        },
+        {
+          "type": "Printer",
+          "count": "2",
+          "name": "Printer SEKRE",
+          "dhcp": true
+        },
+        {
+          "type": "IoT Gateway",
+          "count": "3",
+          "name": "Karaoke SEKRE",
+          "dhcp": true
+        },
+        {
+          "type": "Coffee Machine",
+          "count": "3",
+          "name": "Mesin Kopi",
+          "dhcp": true
+        },
+        {
+          "type": "Home Speaker",
+          "count": "6",
+          "name": "Speaker Karaoke",
+          "dhcp": true
+        },
+        {
+          "type": "Portable Music Player",
+          "count": "3",
+          "name": "Music Player Karaoke",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "WO2",
+      "end_devices": [
+        {
+          "type": "Server",
+          "count": "4",
+          "name": "Server database internal",
+          "dhcp": true
+        },
+        {
+          "type": "Server",
+          "count": "3",
+          "name": "Server dokumen & storage lokal",
+          "dhcp": true
+        },
+        {
+          "type": "Server",
+          "count": "NPM3 % 12",
+          "name": "Server Application Worker",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    },
+    {
+      "name": "MEET",
+      "end_devices": [
+        {
+          "type": "Tablet",
+          "count": "25",
+          "name": "Tablet teleconference",
+          "dhcp": true
+        },
+        {
+          "type": "Access Point",
+          "count": "5",
+          "name": "Gateway MEET",
+          "dhcp": true
+        },
+        {
+          "type": "Tablet",
+          "count": "NPM3 % 15",
+          "name": "Tablet presensi",
+          "dhcp": true
+        }
+      ],
+      "wireless_to": null
+    }
+  ],
+  "method": "VLSM",
+  "gateway_is_first_host": false,
+  "order_tiebreak": "alpha",
+  "grading": {
+    "auto": [
+      "dhcp_pool",
+      "dhcp_mask",
+      "dhcp_gateway",
+      "gateway",
+      "links_up"
+    ],
+    "manual": [
+      "note_name_npm",
+      "palette_boxes",
+      "device_labels",
+      "wireless_dots"
+    ]
+  }
+}

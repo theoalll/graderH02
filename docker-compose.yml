@@ -1,0 +1,20 @@
+services:
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      - APP_USERNAME=${APP_USERNAME:-admin}
+      - APP_PASSWORD=${APP_PASSWORD:-admin}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+psycopg2://graderh02:change_me@host.docker.internal:5432/graderh02}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    expose:
+      - "8000"
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "30004:80"
+    depends_on:
+      - backend
