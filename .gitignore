@@ -1,28 +1,21 @@
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
+
 .env
 
-# Test / coverage
 .pytest_cache/
 .coverage
 
-# Frontend
 frontend/node_modules/
 frontend/dist/
 
-# Env
-.env
-
-# OS
 .DS_Store
 
-# Large binary submissions (keep fixtures only)
 *.pkt
 !tests/*.pkt
 
-# Docs (local-only, never pushed)
 *.md
+!/README.md
