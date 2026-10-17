@@ -1,20 +1,49 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "../api";
 import { DeviceType } from "../types";
+import { toast } from "../toast";
 
 export function DeviceTypeManager({ onClose }: { onClose: () => void }) {
   const [items, setItems] = useState<DeviceType[]>([]);
-  const [error, setError] = useState("");
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [pendingDel, setPendingDel] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [delLeaving, setDelLeaving] = useState(false);
+  const closing = useRef(false);
+  const delClosing = useRef(false);
+
+  // Play the exit animation before a dialog is removed from the tree.
+  const requestClose = useCallback(() => {
+    if (closing.current) return;
+    closing.current = true;
+    setLeaving(true);
+    window.setTimeout(() => {
+      setLeaving(false);
+      closing.current = false;
+      onClose();
+    }, 220);
+  }, [onClose]);
+
+  const closeDel = useCallback(() => {
+    if (delClosing.current) return;
+    delClosing.current = true;
+    setDelLeaving(true);
+    window.setTimeout(() => {
+      setPendingDel(null);
+      setDelLeaving(false);
+      delClosing.current = false;
+    }, 220);
+  }, []);
 
   const load = () =>
     api
       .listDeviceTypes()
       .then(setItems)
-      .catch((e) => setError(e instanceof ApiError ? e.message : "Failed"));
+      .catch((e) =>
+        toast("error", e instanceof ApiError ? e.message : "Could not load device types")
+      );
 
   useEffect(() => {
     load();
@@ -23,31 +52,37 @@ export function DeviceTypeManager({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      if (pendingDel) setPendingDel(null);
-      else onClose();
+      if (pendingDel) closeDel();
+      else requestClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [pendingDel, onClose]);
+  }, [pendingDel, closeDel, requestClose]);
 
   const slug = (s: string) => s.trim().toLowerCase().replace(/\s+/g, "_");
 
+  const resetForm = () => {
+    setEditing(null);
+    setCode("");
+    setLabel("");
+  };
+
   const save = async () => {
-    setError("");
     const c = slug(code);
-    if (!c || !label.trim()) return setError("Code and label are required");
+    if (!c || !label.trim()) {
+      toast("error", "Both code and label are required.");
+      return;
+    }
     try {
       if (editing) {
         await api.updateDeviceType(editing, { code: editing, label: label.trim() });
       } else {
         await api.createDeviceType({ code: c, label: label.trim() });
       }
-      setCode("");
-      setLabel("");
-      setEditing(null);
+      resetForm();
       load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Save failed");
+      toast("error", e instanceof ApiError ? e.message : "Save failed");
     }
   };
 
@@ -57,11 +92,12 @@ export function DeviceTypeManager({ onClose }: { onClose: () => void }) {
     if (!pendingDel) return;
     try {
       await api.deleteDeviceType(pendingDel);
-      setPendingDel(null);
+      toast("info", `Device type "${pendingDel}" was deleted.`);
+      closeDel();
       load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Delete failed");
-      setPendingDel(null);
+      toast("error", e instanceof ApiError ? e.message : "Delete failed");
+      closeDel();
     }
   };
 
@@ -73,82 +109,100 @@ export function DeviceTypeManager({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      <div className="modal-backdrop" onClick={onClose}>
+      <div className={`modal-backdrop${leaving ? " leaving" : ""}`} onClick={requestClose}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Manage device types" onClick={(e) => e.stopPropagation()}>
         <div className="modal-head">
-          <h3 style={{ fontSize: 16 }}>Device Types</h3>
-          <button className="btn icon ghost" onClick={onClose} aria-label="Close">✕</button>
+          <h3 className="modal-title">Device types</h3>
+          <button className="btn icon ghost" onClick={requestClose} aria-label="Close">✕</button>
         </div>
-        <p className="muted" style={{ marginTop: 0, marginBottom: 12 }}>
-          Master list used for the device-type dropdown when authoring a case.
+        <p className="muted meta-line">
+          These types appear in the device-type list when authoring a case.
         </p>
-        {error && <div className="alert error"><span className="alert-ico" /><span>{error}</span></div>}
 
-        <div className="dtm-list">
-          {items.map((d) => (
-            <div className="dtm-row" key={d.code}>
-              <div>
-                <div style={{ fontWeight: 500 }}>{d.label}</div>
-                <div className="faint" style={{ fontSize: 12 }}>
-                  <span className="mono">{d.code}</span>
+        <div className="dtm-panel">
+          <div className="dtm-panel-head">
+            <div className="dtm-panel-title">
+              Types{items.length > 0 ? ` (${items.length})` : ""}
+            </div>
+          </div>
+          <div className="dtm-list">
+            {items.map((d) => (
+              <div className="dtm-row" key={d.code}>
+                <div>
+                  <div className="dtm-item-title">{d.label}</div>
+                  <div className="faint dtm-item-code">
+                    code: <span className="mono">{d.code}</span>
+                  </div>
+                </div>
+                <div className="dtm-item-actions">
+                  <button className="btn sm secondary" onClick={() => startEdit(d)}>Edit</button>
+                  <button className="btn sm danger" onClick={() => remove(d.code)}>Delete</button>
                 </div>
               </div>
-              <div className="row" style={{ gap: 6 }}>
-                <button className="btn sm secondary" onClick={() => startEdit(d)}>Edit</button>
-                <button className="btn sm danger" onClick={() => remove(d.code)}>Delete</button>
-              </div>
+            ))}
+            {items.length === 0 && (
+              <div className="muted">No device types yet. Add the first one below.</div>
+            )}
+          </div>
+        </div>
+
+        <div className="dtm-panel">
+          <div className="dtm-panel-head">
+            <div className="dtm-panel-title">
+              {editing ? `Edit "${editing}"` : "Add a device type"}
             </div>
-          ))}
-          {items.length === 0 && <div className="muted">No device types yet.</div>}
-        </div>
-
-        <div className="divider" />
-
-        <div className="eyebrow" style={{ marginBottom: 8 }}>
-          {editing ? `Edit "${editing}"` : "Add device type"}
-        </div>
-        <div className="field-grid">
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label className="field-label">Code</label>
-            <input
-              className="mono-input"
-              value={code}
-              disabled={!!editing}
-              placeholder="e.g. pc"
-              onChange={(e) => setCode(e.target.value)}
-            />
           </div>
-          <div className="field" style={{ marginBottom: 0 }}>
-            <label className="field-label">Label</label>
-            <input value={label} placeholder="e.g. PC" onChange={(e) => setLabel(e.target.value)} />
+          <div className="dtm-form-grid">
+            <div className="field">
+              <label className="field-label" htmlFor="dtm-code">Code</label>
+              <input
+                id="dtm-code"
+                className="mono-input"
+                value={code}
+                disabled={!!editing}
+                placeholder="e.g. pc"
+                onChange={(e) => setCode(e.target.value)}
+              />
+              <p className="field-hint">Short lowercase key. Cannot change once saved.</p>
+            </div>
+            <div className="field">
+              <label className="field-label" htmlFor="dtm-label">Label</label>
+              <input
+                id="dtm-label"
+                value={label}
+                placeholder="e.g. PC"
+                onChange={(e) => setLabel(e.target.value)}
+              />
+              <p className="field-hint">Shown in the device-type list.</p>
+            </div>
           </div>
-        </div>
-        <div className="row" style={{ marginTop: 12 }}>
-          {editing && (
-            <button className="btn ghost" onClick={() => { setEditing(null); setCode(""); setLabel(""); }}>
-              Cancel
+          <div className="form-row-end">
+            {editing && (
+              <button className="btn ghost" onClick={resetForm}>
+                Cancel
+              </button>
+            )}
+            <button className="btn primary" onClick={save}>
+              {editing ? "Save changes" : "Add device type"}
             </button>
-          )}
-          <button className="btn primary" onClick={save}>
-            {editing ? "Save" : "Add"}
-          </button>
+          </div>
         </div>
       </div>
     </div>
 
       {pendingDel && (
-        <div className="modal-backdrop" onClick={() => setPendingDel(null)}>
+        <div className={`modal-backdrop${delLeaving ? " leaving" : ""}`} onClick={closeDel}>
           <div className="modal" role="dialog" aria-modal="true" aria-label="Confirm delete device type" onClick={(e) => e.stopPropagation()}>
             <div className="modal-head">
-              <h3 style={{ fontSize: 16 }}>Delete device type</h3>
-              <button className="btn icon ghost" onClick={() => setPendingDel(null)} aria-label="Close">✕</button>
+              <h3 className="modal-title">Delete device type</h3>
+              <button className="btn icon ghost" onClick={closeDel} aria-label="Close">✕</button>
             </div>
-            <p className="muted" style={{ marginTop: 0 }}>
-              Delete device type <b>{pendingDel}</b>? This action cannot be undone.
+            <p className="muted flush-top">
+              Delete device type <b>{pendingDel}</b>? This cannot be undone.
             </p>
-            <div className="row" style={{ justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
-              <button className="btn ghost" onClick={() => setPendingDel(null)}>Cancel</button>
-              <button className="btn danger" onClick={confirmDelete}>Delete</button>
+            <div className="modal-actions">
+              <button className="btn ghost" onClick={closeDel}>Cancel</button>
+              <button className="btn danger" onClick={confirmDelete}>Delete type</button>
             </div>
           </div>
         </div>

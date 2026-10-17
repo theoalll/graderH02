@@ -36,6 +36,7 @@ from app.cases_store import (
     save_case,
 )
 from app.engine.solver import solve_case
+from app.engine.vars import is_valid_npm
 from app.grader.score import grade
 from app.master_store import (
     create_device_type,
@@ -178,9 +179,36 @@ def parse_pkt(file: UploadFile = File(...), _: str = Depends(require_auth)):
     return adapt(doc.to_dict())
 
 
+_ALLOCATION_ORDERS = ("host_desc", "code_desc", "alpha", "reverse_alpha")
+
+
+def _check_allocation_order(value: str | None) -> str:
+    order = (value or "host_desc").strip().lower()
+    if order not in _ALLOCATION_ORDERS:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid allocation_order '{value}': expected 'host_desc' or 'code_desc'",
+        )
+    # Normalize legacy aliases so the response always echoes the canonical value.
+    if order == "alpha":
+        return "host_desc"
+    if order == "reverse_alpha":
+        return "code_desc"
+    return order
+
+
+def _require_npm(npm: str) -> str:
+    """A student NPM is exactly 10 digits and digits only."""
+    value = (npm or "").strip()
+    if not is_valid_npm(value):
+        raise HTTPException(status_code=422, detail="NPM must be exactly 10 digits.")
+    return value
+
+
 @app.post("/api/solve", response_model=SolveResult)
 def solve(req: SolveRequest, _: str = Depends(require_auth)):
-    return solve_case(req.case, req.npm)
+    order = _check_allocation_order(req.allocation_order)
+    return solve_case(req.case, _require_npm(req.npm), order)
 
 
 @app.post("/api/grade", response_model=GradeReport)
@@ -188,6 +216,7 @@ def grade_submission(
     case: str = Form(...),
     npm: str = Form(...),
     file: UploadFile = File(...),
+    allocation_order: str = Form("host_desc"),
     _: str = Depends(require_auth),
 ):
     try:
@@ -202,11 +231,13 @@ def grade_submission(
         raise HTTPException(status_code=422, detail=f"Failed to decode pkt: {exc}") from exc
 
     student = adapt(doc.to_dict())
-    solve = solve_case(case_obj, npm)
+    order = _check_allocation_order(allocation_order)
+    solve = solve_case(case_obj, _require_npm(npm), order)
     return grade(case_obj, student, solve)
 
 
 @app.post("/api/grade-json", response_model=GradeReport)
 def grade_json(req: GradeJsonRequest, _: str = Depends(require_auth)):
-    solve = solve_case(req.case, req.npm)
+    order = _check_allocation_order(req.allocation_order)
+    solve = solve_case(req.case, _require_npm(req.npm), order)
     return grade(req.case, req.student, solve)

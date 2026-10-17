@@ -22,7 +22,7 @@
       "end_devices": [
         {
           "type": "PC",
-          "count": "500 + (NPM3 % 35)",
+          "count": "500 + ((NPM3 % 35) + 2)",
           "name": "PC CC-MON",
           "dhcp": true
         }
@@ -42,7 +42,8 @@
           "type": "Sensor",
           "count": "135",
           "name": "Sensor IoT Smart Cold Chain",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         }
       ],
       "wireless_to": null
@@ -58,7 +59,7 @@
         },
         {
           "type": "Laptop",
-          "count": "NPM3 % 10",
+          "count": "(NPM3 % 10) + 2",
           "name": "Laptop dinas",
           "dhcp": true
         },
@@ -71,26 +72,29 @@
         {
           "type": "IoT Gateway",
           "count": "3",
-          "name": "Karaoke SEKRE",
+          "name": "Karaoke Gateway",
           "dhcp": true
         },
         {
           "type": "Coffee Machine",
           "count": "3",
           "name": "Mesin Kopi",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         },
         {
           "type": "Home Speaker",
           "count": "6",
           "name": "Speaker Karaoke",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         },
         {
           "type": "Portable Music Player",
           "count": "3",
           "name": "Music Player Karaoke",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         }
       ],
       "wireless_to": null
@@ -112,7 +116,7 @@
         },
         {
           "type": "Server",
-          "count": "NPM3 % 12",
+          "count": "(NPM3 % 12) + 2",
           "name": "Server Application Worker",
           "dhcp": true
         }
@@ -132,11 +136,12 @@
           "type": "Access Point",
           "count": "5",
           "name": "Gateway MEET",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         },
         {
           "type": "Tablet",
-          "count": "NPM3 % 15",
+          "count": "(NPM3 % 15) + 2",
           "name": "Tablet presensi",
           "dhcp": true
         }

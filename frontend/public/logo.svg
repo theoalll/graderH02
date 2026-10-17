@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <circle cx="50" cy="50" r="43.6" fill="none" stroke="#0d8a8a" stroke-width="9.6"/>
+  <circle cx="50" cy="50" r="38.8" fill="#ffffff"/>
+  <g
+    fill="#000000"
+    text-anchor="middle"
+    font-family="system-ui, -apple-system, 'Segoe UI', Roboto, 'Liberation Sans', Helvetica, Arial, sans-serif"
+    font-weight="700"
+  >
+    <text x="50" y="45.5" font-size="32">H</text>
+    <text x="50" y="77.5" font-size="30">02</text>
+  </g>
+</svg>

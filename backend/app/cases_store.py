@@ -46,7 +46,20 @@ def _seed_if_empty() -> None:
 def list_cases() -> list[dict]:
     with SessionLocal() as s:
         rows = s.scalars(select(CaseModel).order_by(CaseModel.case_id)).all()
-        return [{"case_id": r.case_id, "title": r.title} for r in rows]
+        summaries = []
+        for r in rows:
+            body = r.body if isinstance(r.body, dict) else {}
+            subnets = body.get("subnets")
+            summaries.append(
+                {
+                    "case_id": r.case_id,
+                    "title": r.title,
+                    "base_block": body.get("base_block"),
+                    "method": body.get("method"),
+                    "subnet_count": len(subnets) if isinstance(subnets, list) else 0,
+                }
+            )
+        return summaries
 
 
 def get_case(case_id: str) -> CaseSchema | None:

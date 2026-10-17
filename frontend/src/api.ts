@@ -1,6 +1,7 @@
 // Thin fetch wrapper that injects the auth token and unwraps errors.
 
 import {
+  AllocationOrder,
   CaseSchema,
   CaseSummary,
   DeviceType,
@@ -79,21 +80,33 @@ export const api = {
   deleteDeviceType: (code: string) =>
     request(`/master/device-types/${code}`, { method: "DELETE" }),
 
-  solve: (c: CaseSchema, npm: string) =>
+  solve: (c: CaseSchema, npm: string, allocationOrder: AllocationOrder = "host_desc") =>
     request<SolveResult>("/solve", {
       method: "POST",
-      body: JSON.stringify({ case: c, npm }),
+      body: JSON.stringify({ case: c, npm, allocation_order: allocationOrder }),
     }),
   parsePkt: async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
     return request<StudentJSON>("/parse-pkt", { method: "POST", body: fd });
   },
-  grade: async (c: CaseSchema, npm: string, file: File) => {
+  grade: async (
+    c: CaseSchema,
+    npm: string,
+    file: File,
+    allocationOrder: AllocationOrder = "host_desc"
+  ) => {
     const fd = new FormData();
     fd.append("case", JSON.stringify(c));
     fd.append("npm", npm);
     fd.append("file", file);
+    fd.append("allocation_order", allocationOrder);
     return request<GradeReport>("/grade", { method: "POST", body: fd });
+  },
+  gradeJson: async (c: CaseSchema, npm: string, student: StudentJSON, allocationOrder: AllocationOrder = "host_desc") => {
+    return request<GradeReport>("/grade-json", {
+      method: "POST",
+      body: JSON.stringify({ case: c, npm, student, allocation_order: allocationOrder }),
+    });
   },
 };

@@ -50,6 +50,13 @@ class EndDeviceSpec(BaseModel):
     )
     name: str  # exact device name to verify in the submitted .pkt (graded 5 pts)
     dhcp: bool = True  # whether this end device should be DHCP-configured
+    exclude_from_grading: bool = Field(
+        default=False,
+        description="Device has no address on this subnet's plan, so it earns no device "
+        "points. Two cases: it sits behind a home gateway and takes an address from that "
+        "gateway, or it is a layer 2 device such as an access point with no IP at all. It "
+        "still counts toward subnet sizing and appears in the expected addressing.",
+    )
 
 
 class SubnetDef(BaseModel):
@@ -97,6 +104,15 @@ class CaseSchema(BaseModel):
 # --------------------------------------------------------------------------- #
 # Solver output (answer key)
 # --------------------------------------------------------------------------- #
+class ExpectedDevice(BaseModel):
+    """One expected device spec with its count resolved for this NPM."""
+
+    name: str
+    type: str = ""
+    count: int = 0
+    graded: bool = True
+
+
 class ExpectedSubnet(BaseModel):
     name: str
     network_address: str
@@ -109,6 +125,7 @@ class ExpectedSubnet(BaseModel):
     host_last: str
     gateway: str
     required_devices: Dict[str, int] = Field(default_factory=dict)
+    devices: List[ExpectedDevice] = Field(default_factory=list)
 
 
 class SolveResult(BaseModel):
@@ -118,6 +135,18 @@ class SolveResult(BaseModel):
     subnets: List[ExpectedSubnet] = Field(default_factory=list)
     total_addresses_used: int = 0
     fits_base_block: bool = True
+    recommended_prefix: Optional[int] = Field(
+        default=None,
+        description="Smallest single prefix whose block can hold every address the "
+        "VLSM allocation consumes. Null when nothing was allocated.",
+    )
+    recommended_block_size: int = 0
+    allocation_order: str = Field(
+        default="host_desc",
+        description="Per-upload same-mask tie-break actually used: "
+        "'host_desc' (host needs descending, then code A..Z) or "
+        "'code_desc' (subnet code descending Z..A).",
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -224,14 +253,24 @@ class GradeReport(BaseModel):
     manual_items: List[str] = Field(default_factory=list)
     subnet_grades: List[SubnetGrade] = Field(default_factory=list)
     summary: str = ""
+    allocation_order: str = Field(
+        default="host_desc",
+        description="Per-upload same-mask tie-break used for the answer key.",
+    )
 
 
 class SolveRequest(BaseModel):
     case: CaseSchema
     npm: str
+    allocation_order: str = Field(
+        default="host_desc",
+        description="'host_desc' (host needs descending) or 'code_desc' "
+        "(subnet code descending Z..A) for same-mask subnets.",
+    )
 
 
 class GradeJsonRequest(BaseModel):
     case: CaseSchema
     npm: str
     student: StudentJSON
+    allocation_order: str = Field(default="host_desc")

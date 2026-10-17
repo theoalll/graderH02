@@ -1,8 +1,10 @@
 """Aggregate checks into a GradeReport.
 
 Scoring model:
-  * Each end device (expected_devices) is worth 5 points, one per check:
-    Name, DHCP, IP Range, Subnet Mask, Default Gateway.
+  * Each graded end device is worth 5 points, one per check: Name, DHCP,
+    IP Range, Subnet Mask, Default Gateway. Devices with
+    `exclude_from_grading` (IP assigned by a home gateway) still count toward
+    subnet sizing but earn no device points.
   * Each subnet also earns up to 3 network points: DHCP Pool, Gateway on
     router, Links Up (1 point each).
 Manual items are surfaced for the TA to verify by eye (not auto-scored).
@@ -58,9 +60,12 @@ def grade(case: CaseSchema, student: StudentJSON, solve: SolveResult) -> GradeRe
             sub_score += cr.score
             sub_max += weight
 
-        # Per-end-device (5-point) grades
+        # Per-end-device (5-point) grades. Devices behind a home gateway get
+        # their IP from that gateway's own pool, so they are not graded.
         device_grades = []
         for ed in expected_by_name.get(sub.name, []):
+            if ed.exclude_from_grading:
+                continue
             dg = grade_end_device(ed, sub, student)
             device_grades.append(dg)
             sub_score += dg.score
@@ -88,4 +93,5 @@ def grade(case: CaseSchema, student: StudentJSON, solve: SolveResult) -> GradeRe
         manual_items=manual,
         subnet_grades=subnet_grades,
         summary=summary,
+        allocation_order=getattr(solve, "allocation_order", "host_desc"),
     )

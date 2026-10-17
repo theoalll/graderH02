@@ -1,5 +1,7 @@
 // Mirrors of the backend Pydantic schemas (subset used by the UI).
 
+export type AllocationOrder = "host_desc" | "code_desc";
+
 export interface Variable {
   name: string;
   source?: "npm_last2" | "npm_last3" | "const" | "expr" | null;
@@ -12,6 +14,7 @@ export interface EndDeviceSpec {
   count: string;
   name: string;
   dhcp: boolean;
+  exclude_from_grading?: boolean;
 }
 
 export interface SubnetDef {
@@ -40,11 +43,21 @@ export interface CaseSchema {
 export interface CaseSummary {
   case_id: string;
   title: string;
+  base_block?: string;
+  method?: string;
+  subnet_count?: number;
 }
 
 export interface DeviceType {
   code: string;
   label: string;
+}
+
+export interface ExpectedDevice {
+  name: string;
+  type: string;
+  count: number;
+  graded: boolean;
 }
 
 export interface ExpectedSubnet {
@@ -59,6 +72,7 @@ export interface ExpectedSubnet {
   host_last: string;
   gateway: string;
   required_devices: Record<string, number>;
+  devices?: ExpectedDevice[];
 }
 
 export interface SolveResult {
@@ -68,6 +82,9 @@ export interface SolveResult {
   subnets: ExpectedSubnet[];
   total_addresses_used: number;
   fits_base_block: boolean;
+  recommended_prefix?: number | null;
+  recommended_block_size?: number;
+  allocation_order?: AllocationOrder | string;
 }
 
 export interface StudentInterface {
@@ -165,4 +182,5 @@ export interface GradeReport {
   manual_items: string[];
   subnet_grades: SubnetGrade[];
   summary: string;
+  allocation_order?: AllocationOrder | string;
 }

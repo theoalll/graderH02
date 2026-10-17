@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "../api";
 import { CaseSchema, DeviceType, EndDeviceSpec, SubnetDef, Variable } from "../types";
 import { DeviceTypeManager } from "../components/DeviceTypeManager";
+import { toast } from "../toast";
 
 const genId = (): string =>
   (globalThis as any).crypto?.randomUUID?.() ?? Math.random().toString(36).slice(2);
@@ -57,19 +58,24 @@ const emptyCase = (): CaseSchema => ({
   },
 });
 
+const deviceWord = (n: number) => (n === 1 ? "device" : "devices");
+const LEAVE_MS = 220;
+
 export function CaseBuilder() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [c, setC] = useState<CaseSchema>(emptyCase());
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<string[]>([]);
-  const [msg, setMsg] = useState("");
   const [deviceTypes, setDeviceTypes] = useState<DeviceType[]>([]);
   const [showTypes, setShowTypes] = useState(false);
+  const [collapsed, setCollapsed] = useState<Record<number, boolean>>({});
+  // Rows and cards animate out before they are removed from the list.
+  const [leaveVar, setLeaveVar] = useState<number | null>(null);
+  const [leaveSub, setLeaveSub] = useState<number | null>(null);
+  const [leaveDev, setLeaveDev] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
-    api.getCase(id).then(setC).catch((e) => setError(e.message));
+    api.getCase(id).then(setC).catch((e) => toast("error", e.message));
   }, [id]);
 
   useEffect(() => {
@@ -84,7 +90,14 @@ export function CaseBuilder() {
     update({ variables });
   };
   const addVar = () => update({ variables: [...c.variables, { name: "", source: "const", value: 0 }] });
-  const delVar = (i: number) => update({ variables: c.variables.filter((_, j) => j !== i) });
+  const delVar = (i: number) => {
+    if (leaveVar !== null) return;
+    setLeaveVar(i);
+    window.setTimeout(() => {
+      setC((prev) => ({ ...prev, variables: prev.variables.filter((_, j) => j !== i) }));
+      setLeaveVar(null);
+    }, LEAVE_MS);
+  };
 
   // subnets
   const setSub = (i: number, patch: Partial<SubnetDef>) => {
@@ -95,9 +108,22 @@ export function CaseBuilder() {
     update({
       subnets: [...c.subnets, { name: "", end_devices: [], wireless_to: null }],
     });
-  const delSub = (i: number) => update({ subnets: c.subnets.filter((_, j) => j !== i) });
+  const delSub = (i: number) => {
+    if (leaveSub !== null) return;
+    setLeaveSub(i);
+    window.setTimeout(() => {
+      setC((prev) => ({ ...prev, subnets: prev.subnets.filter((_, j) => j !== i) }));
+      setLeaveSub(null);
+      setCollapsed({});
+    }, LEAVE_MS);
+  };
+  const toggleSub = (i: number) =>
+    setCollapsed((prev) => ({ ...prev, [i]: !prev[i] }));
+  const allCollapsed = c.subnets.length > 0 && c.subnets.every((_, i) => collapsed[i]);
+  const setAllCollapsed = (v: boolean) =>
+    setCollapsed(Object.fromEntries(c.subnets.map((_, i) => [i, v])));
 
-  // expected end devices (single merged section: type, count, name, dhcp)
+  // expected devices (type, count, name, dhcp)
   const setEnd = (si: number, di: number, patch: Partial<EndDeviceSpec>) => {
     const subnets = c.subnets.map((s, j) => {
       if (j !== si) return s;
@@ -108,59 +134,82 @@ export function CaseBuilder() {
   };
   const addEnd = (si: number) =>
     setSub(si, {
-      end_devices: [...c.subnets[si].end_devices, { type: "", count: "0", name: "", dhcp: true }],
+      end_devices: [
+        ...c.subnets[si].end_devices,
+        { type: "", count: "0", name: "", dhcp: true, exclude_from_grading: false },
+      ],
     });
-  const delEnd = (si: number, di: number) =>
-    setSub(si, { end_devices: c.subnets[si].end_devices.filter((_, k) => k !== di) });
+  const delEnd = (si: number, di: number) => {
+    const key = `${si}-${di}`;
+    if (leaveDev !== null) return;
+    setLeaveDev(key);
+    window.setTimeout(() => {
+      setC((prev) => ({
+        ...prev,
+        subnets: prev.subnets.map((s, j) =>
+          j === si ? { ...s, end_devices: s.end_devices.filter((_, k) => k !== di) } : s
+        ),
+      }));
+      setLeaveDev(null);
+    }, LEAVE_MS);
+  };
 
   const save = async () => {
-    setError("");
-    setFieldErrors([]);
-    setMsg("");
     const errs = validateCase(c);
     if (errs.length) {
-      setFieldErrors(errs);
+      toast("error", "This case cannot be saved yet.", errs);
       return;
     }
     try {
       if (id) await api.updateCase(id, c);
       else await api.createCase(c);
-      setMsg("Saved.");
+      toast("success", "Case saved.");
       navigate("/cases");
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : "Save failed");
+      toast("error", e instanceof ApiError ? e.message : "Save failed");
     }
   };
 
   return (
-    <div>
+    <div className="page">
       <div className="page-head">
         <div>
-          <h2 className="page-title">{id ? "Edit Case" : "New Case"}</h2>
-          <p className="page-sub">Define the IP-addressing lab and its expected allocation.</p>
+          <h2 className="page-title">{id ? "Edit case" : "New case"}</h2>
+          <p className="page-sub">
+            Define the lab, its variables, and the address allocation students must reach.
+          </p>
         </div>
       </div>
 
-      {error && <div className="alert error"><span className="alert-ico" /><span>{error}</span></div>}
-      {msg && <div className="alert ok"><span className="alert-ico" /><span>{msg}</span></div>}
-
-      <div className="panel section">
+      <div className="block">
+        <div className="block-head">
+          <div>
+            <div className="block-title">Case setup</div>
+            <p className="block-sub">The lab identity and the address block every subnet is carved from.</p>
+          </div>
+        </div>
         <div className="field-grid">
           <div className="field">
-            <label className="field-label">Method</label>
+            <label className="field-label">Case title</label>
+            <input
+              value={c.title}
+              placeholder="e.g. [Gasal 26/27] Building A"
+              onChange={(e) => update({ title: e.target.value })}
+            />
+          </div>
+          <div className="field">
+            <label className="field-label">Allocation method</label>
             <select value={c.method} onChange={(e) => update({ method: e.target.value })}>
               <option value="VLSM">VLSM</option>
               <option value="FLSM">FLSM</option>
             </select>
-            <p className="field-hint">VLSM = variable-length; FLSM = equal blocks.</p>
+            <p className="field-hint">
+              VLSM uses variable-size blocks. FLSM uses one equal block size for every subnet.
+            </p>
           </div>
         </div>
         <div className="field">
-          <label className="field-label">Title</label>
-          <input value={c.title} onChange={(e) => update({ title: e.target.value })} />
-        </div>
-        <div className="field">
-          <label className="field-label">Base Block</label>
+          <label className="field-label">Base block</label>
           <input
             className="mono-input"
             value={c.base_block}
@@ -168,40 +217,55 @@ export function CaseBuilder() {
             placeholder="e.g. 10.X.64.0/20"
           />
           <p className="field-hint">
-            Use variable names from below, e.g. <span className="mono">10.X.124.0/21</span>.
+            Variables defined below can be referenced here, e.g.{" "}
+            <span className="mono">10.X.124.0/21</span>.
           </p>
         </div>
-        <label className="inline" style={{ marginTop: 4 }}>
+        <label className="inline">
           <input
             type="checkbox"
             checked={c.gateway_is_first_host}
             onChange={(e) => update({ gateway_is_first_host: e.target.checked })}
           />
-          Gateway is the first usable host
+          The gateway is the first usable host
         </label>
         <p className="field-hint">
-          When on, the gateway IP equals the first host (per some lab conventions).
+          Turn this on when the lab expects the gateway to take the first usable address.
         </p>
       </div>
 
-      <div className="section">
-        <div className="row-between" style={{ marginBottom: 12 }}>
-          <h3 style={{ fontSize: 15 }}>Variables</h3>
+      <div className="block">
+        <div className="block-head">
+          <div>
+            <div className="block-title">
+              Variables{c.variables.length > 0 && ` (${c.variables.length})`}
+            </div>
+            <p className="block-sub">
+              Values resolved from the student NPM, then substituted into the base block and device counts.
+            </p>
+          </div>
+          <div className="block-actions">
+            <button className="btn sm secondary" onClick={addVar}>
+              Add variable
+            </button>
+          </div>
         </div>
         <div className="stack">
           {c.variables.map((v, i) => (
-            <div className="item-row" key={i} title="A variable resolves from the student NPM or from an expression over other variables.">
+            <div className={`item-row${leaveVar === i ? " leaving" : ""}`} key={i} title="A variable resolves from the student NPM or from an expression over other variables.">
               <div className="grow">
                 <input
                   className="mono-input"
                   placeholder="name (e.g. X)"
+                  aria-label={`Variable ${i + 1} name`}
                   value={v.name}
                   onChange={(e) => setVar(i, { name: e.target.value })}
                 />
               </div>
               <select
-                style={{ maxWidth: 160 }}
+                className="var-source"
                 value={v.source ?? ""}
+                aria-label={`Variable ${i + 1} source`}
                 onChange={(e) => setVar(i, { source: (e.target.value || null) as Variable["source"] })}
               >
                 <option value="npm_last2">npm_last2</option>
@@ -212,17 +276,18 @@ export function CaseBuilder() {
               {v.source === "const" && (
                 <input
                   type="number"
-                  style={{ maxWidth: 120 }}
+                  className="var-value"
                   placeholder="value"
+                  aria-label={`Variable ${i + 1} value`}
                   value={v.value ?? 0}
                   onChange={(e) => setVar(i, { value: Number(e.target.value) })}
                 />
               )}
               {v.source === "expr" && (
                 <input
-                  className="grow mono-input"
-                  style={{ minWidth: 140 }}
+                  className="grow mono-input var-expr"
                   placeholder="expr e.g. NPM3 % 256"
+                  aria-label={`Variable ${i + 1} expression`}
                   value={v.expr ?? ""}
                   onChange={(e) => setVar(i, { expr: e.target.value })}
                 />
@@ -233,130 +298,211 @@ export function CaseBuilder() {
             </div>
           ))}
         </div>
-        <button className="btn sm secondary" style={{ marginTop: 12 }} onClick={addVar}>
-          + Add variable
-        </button>
         <p className="field-hint">
-          <span className="mono">expr</span> computes a value from other variables (e.g.{" "}
-          <span className="mono">X = NPM3 % 256</span>), instead of reading NPM digits directly.
+          <span className="mono">npm_last2</span> takes the last two digits of the NPM,{" "}
+          <span className="mono">npm_last3</span> the last three.{" "}
+          <span className="mono">expr</span> computes a value from other variables, e.g.{" "}
+          <span className="mono">X = NPM3 % 256</span>.
         </p>
       </div>
 
-      <div className="section">
-        <div className="row-between" style={{ marginBottom: 12 }}>
-          <h3 style={{ fontSize: 15 }}>Subnets</h3>
-          <button className="btn sm secondary" onClick={() => setShowTypes(true)}>
-            Manage device types
-          </button>
+      <div className="block">
+        <div className="block-head">
+          <div>
+            <div className="block-title">
+              Subnets{c.subnets.length > 0 && ` (${c.subnets.length})`}
+            </div>
+            <p className="block-sub">
+              Each subnet is a code plus the devices the student must place there.
+            </p>
+          </div>
+          <div className="block-actions">
+            {c.subnets.length > 1 && (
+              <button className="btn sm ghost" onClick={() => setAllCollapsed(!allCollapsed)}>
+                {allCollapsed ? "Expand all" : "Collapse all"}
+              </button>
+            )}
+            <button className="btn sm secondary" onClick={() => setShowTypes(true)}>
+              Device types
+            </button>
+            <button className="btn sm secondary" onClick={addSub}>
+              Add subnet
+            </button>
+          </div>
         </div>
-        {c.subnets.map((s, si) => (
-          <div className="subnet-block" key={si}>
-            <div className="subnet-head">
-              <div className="grow" style={{ flex: 1, minWidth: 160 }}>
+
+        {c.subnets.map((s, si) => {
+          const isCollapsed = !!collapsed[si];
+          const devCount = s.end_devices.length;
+          const title = s.name.trim() || `Subnet ${si + 1}`;
+          const nameId = `subnet-name-${si}`;
+          return (
+            <div className={`subnet-block${leaveSub === si ? " leaving" : ""}`} key={si}>
+              <div className="subnet-head">
+                <span className="subnet-eyebrow">Subnet {si + 1}</span>
+                <div className="subnet-actions">
+                  <button
+                    className="btn sm ghost"
+                    onClick={() => toggleSub(si)}
+                    aria-expanded={!isCollapsed}
+                  >
+                    {isCollapsed
+                      ? `Show ${devCount} ${deviceWord(devCount)}`
+                      : `Hide ${deviceWord(devCount)}`}
+                  </button>
+                  <button className="btn sm danger" onClick={() => delSub(si)}>
+                    Delete subnet
+                  </button>
+                </div>
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor={nameId}>Subnet code</label>
                 <input
+                  id={nameId}
                   className="mono-input"
-                  placeholder="subnet name / code (e.g. CC-MON)"
+                  placeholder="e.g. CC-MON"
                   value={s.name}
                   onChange={(e) => setSub(si, { name: e.target.value })}
                 />
+                <p className="field-hint">
+                  The code shown in the answer key and used by the subnet order option.
+                </p>
               </div>
-              <button className="btn sm danger" onClick={() => delSub(si)}>
-                Delete subnet
-              </button>
-            </div>
 
-              <div className="subgroup">
-                <div className="eyebrow row-between" style={{ marginBottom: 8 }}>
-                  <span>Expected end devices <span className="muted small">(5 pts each: name, DHCP, IP range, mask, gateway)</span></span>
-                </div>
-                <div className="scroll-x">
-                <div className="enddev-head">
-                  <span>Type</span>
-                  <span>Count (expr)</span>
-                  <span>Device name</span>
-                  <span>DHCP</span>
-                  <span></span>
-                </div>
-                {s.end_devices.map((d, di) => (
-                  <div className="dev-row enddev-row" key={di}>
-                    <select
-                      className="mono-input"
-                      value={d.type}
-                      onChange={(e) => setEnd(si, di, { type: e.target.value })}
-                    >
-                      <option value="">Type…</option>
-                      {deviceTypes.map((t) => (
-                        <option key={t.code} value={t.label}>
-                          {t.label}
-                        </option>
-                      ))}
-                    </select>
-                    <input
-                      className="mono-input"
-                      placeholder="e.g. 500 + (NPM3 % 35)"
-                      value={d.count}
-                      onChange={(e) => setEnd(si, di, { count: e.target.value })}
-                    />
-                    <input
-                      className="mono-input"
-                      placeholder="e.g. PC WN"
-                      value={d.name}
-                      onChange={(e) => setEnd(si, di, { name: e.target.value })}
-                    />
-                    <label className="check-inline" title="End device should be DHCP-configured">
-                      <input
-                        type="checkbox"
-                        checked={d.dhcp}
-                        onChange={(e) => setEnd(si, di, { dhcp: e.target.checked })}
-                      />
-                      DHCP
-                    </label>
-                    <button
-                      className="btn icon danger"
-                      onClick={() => delEnd(si, di)}
-                      aria-label="Remove expected device"
-                    >
-                      ✕
+              <div
+                className={`disclosure${!isCollapsed ? " open" : ""}`}
+                aria-hidden={isCollapsed}
+              >
+                <div>
+                  <div className="group-head">
+                    <div>
+                      <div className="group-title">
+                        Expected devices{devCount > 0 ? ` (${devCount})` : ""}
+                      </div>
+                      <p className="group-sub">
+                        Each device is graded 5 points for name, DHCP, IP range, mask, and
+                        gateway, except devices with no IP on this subnet. The count sets the
+                        size of this subnet.
+                      </p>
+                    </div>
+                    <button className="btn sm secondary" onClick={() => addEnd(si)}>
+                      Add device
                     </button>
                   </div>
-                ))}
-                </div>
-                <button className="btn sm secondary" onClick={() => addEnd(si)}>
-                  + Add expected device
-                </button>
-              <p className="field-hint">
-                Each row binds a <b>device type</b> (sizes the subnet), a <b>count</b> expression
-                (number of devices of that type), a <b>device name</b> to verify, and a <b>DHCP</b> flag.
-                The named device is graded 5 points; the count drives only the subnet size.
-              </p>
-            </div>
-          </div>
-        ))}
-        <button className="btn secondary" style={{ marginTop: 4 }} onClick={addSub}>
-          + Add subnet
-        </button>
-      </div>
 
-      {fieldErrors.length > 0 && (
-        <div className="alert error">
-          <span className="alert-ico" />
-          <div>
-            <div>Fix the following before saving:</div>
-            <ul style={{ margin: "4px 0 0 18px" }}>
-              {fieldErrors.map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
-            </ul>
+                  {devCount === 0 && (
+                    <div className="empty">
+                      No devices in this subnet yet. Add at least one expected device.
+                    </div>
+                  )}
+
+                  {s.end_devices.map((d, di) => {
+                    const idBase = `sub-${si}-dev-${di}`;
+                    return (
+                      <div className={`dev-card${leaveDev === `${si}-${di}` ? " leaving" : ""}`} key={di}>
+                        <div className="dev-card-head">
+                          <span className="dev-card-title">Device {di + 1}</span>
+                          <button
+                            className="btn sm icon danger"
+                            onClick={() => delEnd(si, di)}
+                            aria-label={`Remove device ${di + 1} from ${title}`}
+                            title="Remove device"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="dev-fields">
+                          <div className="field">
+                            <label className="field-label" htmlFor={`${idBase}-type`}>Device type</label>
+                            <select
+                              id={`${idBase}-type`}
+                              value={d.type}
+                              onChange={(e) => setEnd(si, di, { type: e.target.value })}
+                            >
+                              <option value="">Choose a type</option>
+                              {deviceTypes.map((t) => (
+                                <option key={t.code} value={t.label}>
+                                  {t.label}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="field-hint">Sets how large this subnet must be.</p>
+                          </div>
+                          <div className="field">
+                            <label className="field-label" htmlFor={`${idBase}-count`}>Count</label>
+                            <input
+                              id={`${idBase}-count`}
+                              className="mono-input"
+                              placeholder="e.g. 500 + (NPM3 % 35)"
+                              value={d.count}
+                              onChange={(e) => setEnd(si, di, { count: e.target.value })}
+                            />
+                            <p className="field-hint">Number of this type, as an expression.</p>
+                          </div>
+                          <div className="field span-2">
+                            <label className="field-label" htmlFor={`${idBase}-name`}>Device name</label>
+                            <input
+                              id={`${idBase}-name`}
+                              className="mono-input"
+                              placeholder="e.g. PC WN"
+                              value={d.name}
+                              onChange={(e) => setEnd(si, di, { name: e.target.value })}
+                            />
+                            <p className="field-hint">The name checked in the student's file.</p>
+                          </div>
+                          <label className="check-inline span-2">
+                            <input
+                              type="checkbox"
+                              checked={d.dhcp}
+                              onChange={(e) => setEnd(si, di, { dhcp: e.target.checked })}
+                            />
+                            Obtains its address over DHCP
+                          </label>
+                          <label className="check-inline span-2">
+                            <input
+                              type="checkbox"
+                              checked={!!d.exclude_from_grading}
+                              onChange={(e) =>
+                                setEnd(si, di, { exclude_from_grading: e.target.checked })
+                              }
+                            />
+                            Not graded by IP
+                          </label>
+                          {d.exclude_from_grading && (
+                            <p className="field-hint span-2">
+                              Use this when the device has no address on this subnet's plan,
+                              such as a device behind a home gateway or a layer 2 access point.
+                              It still counts toward this subnet's size.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        {c.subnets.length === 0 && (
+          <div className="empty">
+            No subnets yet. Add the first subnet to define the expected allocation.
           </div>
-        </div>
-      )}
+        )}
+        {c.subnets.length > 0 && (
+          <button className="btn secondary" onClick={addSub}>
+            Add subnet
+          </button>
+        )}
+      </div>
 
       <div className="builder-actions">
         <button className="btn ghost" onClick={() => navigate("/cases")}>
           Cancel
         </button>
         <button className="btn primary" onClick={save}>
-          Save Case
+          Save case
         </button>
       </div>
 

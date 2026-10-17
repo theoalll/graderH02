@@ -23,3 +23,6 @@ frontend/dist/
 # Large binary submissions (keep fixtures only)
 *.pkt
 !tests/*.pkt
+
+# Docs (local-only, never pushed)
+*.md

@@ -7,6 +7,14 @@ from typing import Dict, List
 from app.schemas import Variable
 from app.engine.formulas import eval_quantity
 
+# A student NPM is exactly 10 digits. Anything else resolves to wrong values
+# without raising, so it is rejected up front.
+NPM_PATTERN = re.compile(r"^\d{10}$")
+
+
+def is_valid_npm(npm: str) -> bool:
+    return bool(NPM_PATTERN.match((npm or "").strip()))
+
 
 def _digits(npm: str) -> str:
     return re.sub(r"\D", "", npm)

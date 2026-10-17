@@ -41,11 +41,37 @@ def _tie_key(name: str, reverse: bool):
     return tuple(-ord(c) for c in name.upper()) if reverse else name.upper()
 
 
+def _normalize_allocation_order(order: str | None, tiebreak: str | None = None) -> str:
+    """Map legacy tiebreak values and validate the per-upload allocation order.
+
+    Valid orders:
+      * "host_desc" - same-mask ties broken by host requirement, descending,
+        then subnet code ascending (A..Z) for determinism.
+      * "code_desc" - same-mask ties broken by subnet code, descending (Z..A).
+    Legacy aliases: "alpha" -> "host_desc", "reverse_alpha" -> "code_desc".
+    """
+    if order is None:
+        order = tiebreak if tiebreak in ("host_desc", "code_desc") else None
+    if order is None:
+        if tiebreak == "reverse_alpha":
+            return "code_desc"
+        # "alpha" and anything else fall back to the default behavior.
+        return "host_desc"
+    if order == "alpha":
+        return "host_desc"
+    if order == "reverse_alpha":
+        return "code_desc"
+    if order not in ("host_desc", "code_desc"):
+        raise ValueError(f"Invalid allocation_order '{order}': expected 'host_desc' or 'code_desc'")
+    return order
+
+
 def allocate(
     base_block: str,
     requirements: List[tuple[str, int]],
     method: str = "VLSM",
     tiebreak: str = "alpha",
+    allocation_order: Optional[str] = None,
 ) -> List[Allocation]:
     # Use the LITERAL base address as the allocation start. Packet Tracer VLSM starts
     # allocating from the given network address (e.g. 10.148.124.0/21 begins at
@@ -56,11 +82,20 @@ def allocate(
     base_size = 2 ** (32 - prefix)
     base_broadcast_int = base_int + base_size - 1
 
-    reverse = tiebreak == "reverse_alpha"
-    # Order by allocated block size (largest first); equal sizes broken by name.
-    requirements = sorted(
-        requirements, key=lambda r: (-_size_for_hosts(r[1]), _tie_key(r[0], reverse))
-    )
+    order = _normalize_allocation_order(allocation_order, tiebreak)
+    # Primary: allocated block size, largest first (standard VLSM).
+    # Same-mask ties are user-selectable per upload:
+    #   host_desc -> host requirement descending, then code ascending (A..Z).
+    #   code_desc -> subnet code descending (Z..A).
+    if order == "code_desc":
+        # Stable two-pass sort: code Z..A first, then size largest-first.
+        # Python sort is stable, so equal sizes keep the Z..A code order.
+        requirements = sorted(requirements, key=lambda r: r[0].upper(), reverse=True)
+        requirements = sorted(requirements, key=lambda r: -_size_for_hosts(r[1]))
+    else:  # host_desc (default, backward compatible)
+        requirements = sorted(
+            requirements, key=lambda r: (-_size_for_hosts(r[1]), -r[1], r[0].upper())
+        )
 
     if method.upper() == "FLSM":
         max_size = max(_size_for_hosts(h) for _, h in requirements)

@@ -2,35 +2,38 @@ import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth";
 import { ApiError } from "../api";
+import { Theme, ThemeToggle } from "../theme";
+import { toast } from "../toast";
 
-export function Login() {
+export function Login({ theme, onTheme }: { theme: Theme; onTheme: (t: Theme) => void }) {
   const { login } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setError("");
     try {
       await login(username, password);
       navigate("/cases");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Login failed");
+      toast("error", err instanceof ApiError ? err.message : "Sign-in failed");
     }
   };
 
   return (
-    <div className="login-wrap">
+    <div className="login-wrap page">
       <form className="panel login-card" onSubmit={submit}>
-        <button className="brand" type="button" style={{ pointerEvents: "none" }}>
-          <span className="mark">IP</span>
-          IP Addressing Grader
-        </button>
+        <div className="login-top">
+          <button className="brand brand-static" type="button" tabIndex={-1}>
+            <img className="mark" src="/logo.svg" alt="" width={32} height={32} />
+            IP Addressing Grader
+          </button>
+          <ThemeToggle theme={theme} onChange={onTheme} />
+        </div>
         <h1>Sign in</h1>
-        <p className="muted" style={{ marginTop: 4, marginBottom: 20 }}>
-          Use the teaching-assistant credentials to continue.
+        <p className="muted login-sub">
+          Enter the TA account credentials to continue.
         </p>
 
         <div className="field">
@@ -51,11 +54,9 @@ export function Login() {
           />
         </div>
 
-        {error && <div className="alert error"><span className="alert-ico" /><span>{error}</span></div>}
-        <button className="btn primary" type="submit" style={{ width: "100%" }}>
+        <button className="btn primary btn-block" type="submit">
           Sign in
         </button>
-        <p className="login-foot">Single shared TA account · grading is not stored.</p>
       </form>
     </div>
   );

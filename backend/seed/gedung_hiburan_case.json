@@ -22,7 +22,7 @@
       "end_devices": [
         {
           "type": "Printer",
-          "count": "NPM3 % 29",
+          "count": "(NPM3 % 29) + 2",
           "name": "Printer RE",
           "dhcp": true
         }
@@ -34,7 +34,7 @@
       "end_devices": [
         {
           "type": "PC",
-          "count": "(NPM3 % 26) + 3",
+          "count": "(NPM3 % 26) + 5",
           "name": "PC RS",
           "dhcp": true
         }
@@ -54,7 +54,8 @@
           "type": "Smart Device",
           "count": "63",
           "name": "Speaker KR",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         }
       ],
       "wireless_to": null
@@ -72,7 +73,8 @@
           "type": "Smart Device",
           "count": "128",
           "name": "CCTV CB",
-          "dhcp": true
+          "dhcp": true,
+          "exclude_from_grading": true
         }
       ],
       "wireless_to": null
